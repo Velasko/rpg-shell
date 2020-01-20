@@ -1,24 +1,26 @@
-from cmd import Cmd
 from subprocess import PIPE, Popen
 
 import argparse
 import os
-import random
 import re
+import traceback
 import sys
 
-if os.name != 'nt':
-	BLUE = "\033[1;34;40m"
-	GREEN = "\033[1;32;40m"
-	WHITE = "\033[0;37;40m"
-	RED = "\033[0;31;40m"
-	PURPLE = "\033[0;35;40m"
-else:
-	BLUE = ""
-	GREEN = ""
-	WHITE = ""
-	RED = ""
-	PURPLE = ""
+from .cmd import Cmd
+from . import roll
+
+DEBUG_MODE = True
+
+BLUE = "\033[1;34;40m"
+GREEN = "\033[1;32;40m"
+WHITE = "\033[0;37;40m"
+RED = "\033[0;31;40m"
+PURPLE = "\033[0;35;40m"
+
+#if windows
+if os.name == 'nt':
+	import colorama
+	colorama.init()
 
 def cmdline(command):
 	process = Popen(
@@ -27,70 +29,6 @@ def cmdline(command):
 		shell=True
 	)
 	return process.communicate()[0]
-
-class Roll(list):
-	def __init__(self, d_type, rolls):
-		super().__init__(rolls)
-		self.sort(reverse = True)
-		self.type = d_type
-		self.value = sum(self)
-		self.size = super().__len__()
-
-	def min(self, n=1):
-		self.size = min(n, super().__len__())
-		self.value = sum(self[-self.size:])
-		return self
-
-	def max(self, n=1):
-		self.size = min(n, super().__len__())
-		self.value = sum(self[:self.size])
-		return self
-
-	def reroll(self):
-		self.__init__(self.type, [random.randrange(s) + 1 for _ in range(n)])
-
-	def get_rolls(self):
-		return super().__repr__()
-
-	def __str__(self):
-		size = len(self)
-		if size == 1:
-			r = ''
-		else:
-			r = super().__repr__()
-		return f'{size}d{self.type} = {self.value} {r}'
-
-	def __repr__(self):
-		return str(self)
-
-	def __len__(self):
-		return self.size
-
-	def __add__(self, other):
-		return other + self.value
-	def __sub__(self, other):
-		return other - self.value
-
-def d(s, n=1):
-	"""
-	s: sides of die. Eg: 4, 6, 8, 10, 12, 20
-	n: number of dice
-	in
-	"""
-	if n == None:
-		n = 1
-	r = Roll(d_type=s, rolls=[random.randrange(s) + 1 for _ in range(n)])
-	return r
-
-def d_string(matchobj):
-	_, s, m, n, t = matchobj.groups()
-	if m is not None:
-		if s is None:
-			s = 1
-		return (f'd(s={t}, n={n}).{m}({s})')
-	return f'd(s={t}, n={n})'
-
-d_pattern = "(([0-9]+ )?(min|max) )?([0-9]+)?d([0-9]+)"
 
 class Prompt(Cmd):
 	intro = '''
@@ -125,18 +63,25 @@ Type "help" or "?" for more information
 			inp += f'\n{i}'
 			if i == '': break
 
-		inp = re.sub(d_pattern, d_string, inp)
+		command = re.sub(roll.d_pattern, roll.d_string, inp)
 		try:
-			if 'os.' in inp:
+			if 'os.' in command:
 				raise Exception()
-			e = eval(inp)
+			e = eval(command)
 			if e is not None: print(e)
 
 		except Exception as e:
 			try:
-				exec(inp, globals())
+				exec(command, globals())
 			except Exception as e:
 				name = re.match("<class '(.+)'>", str(type(e))).groups()[0]
+				if DEBUG_MODE:
+					purge = "exec(inp, globals())"
+					trace = traceback.format_exc()
+
+					if purge in trace:
+						trace = '\n'.join(trace.split('\n'))
+					print(trace)
 				print(f'{RED}(Python) {name}: {e}{WHITE}')
 
 	def do_EOF(self, inp):
@@ -155,8 +100,6 @@ Type "help" or "?" for more information
 	def do_cmdmode(self, inp):
 		Prompt.prompt = f'{GREEN}sys-shell{WHITE}>{BLUE}{os.getcwd()}${WHITE} '
 		Prompt.shell_mode = True
-		files = cmdline('ls')
-		print(files)
 
 	def help_cmdmode(self):
 		print("Executes system commands until rpgmode is called.")
