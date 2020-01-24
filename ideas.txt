@@ -1,6 +1,0 @@
-Implementar:
-	- musica/efeitos sonoros
-	- acesso às fichas de jogadores remotamente (pyto4? http?)
-		- pyro requer usar python e portanto um computador, implementar uma interface gráfica, mas possui mais granularidade em como funcionará. pyinstall pode evitar a necessidade de instalar o python.
-		- http pode ser acessado do celular sem modificações, mas creio que será somente algo visual e bem simplista.
-	- "john attacks Orc1 with Long Sword" syntax
