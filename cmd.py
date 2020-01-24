@@ -46,7 +46,7 @@ listings of documented functions, miscellaneous topics, and undocumented
 functions respectively.
 """
 
-import string, sys
+import string, sys, os
 
 __all__ = ["Cmd"]
 
@@ -127,8 +127,13 @@ class Cmd:
                 else:
                     if self.use_rawinput:
                         try:
-                            print(self.prompt, end='')
-                            line = input()
+                            #if windows
+                            if os.name == 'nt':
+                                print(self.prompt, end='')
+                                line = input()
+                            else:
+                                line = input(f"{self.prompt} ")
+
                         except EOFError:
                             line = 'EOF'
                     else:

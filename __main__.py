@@ -7,9 +7,9 @@ import traceback
 import sys
 
 from .cmd import Cmd
-from . import roll
+from . import roll, routines, settings
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 BLUE = "\033[1;34;40m"
 GREEN = "\033[1;32;40m"
@@ -36,28 +36,18 @@ Welcome to RPG shell (0.1.0)
 It has an integration with python shell so it's capable to execute calculations and define functions.
 Type "help" or "?" for more information
 	'''
-	prompt = f'{PURPLE}rpg-shell> {WHITE}'
+	prompt = f'{PURPLE}rpg-shell>{WHITE}'
 	shell_mode = False
 	notes_created = []
 
 	def default(self, inp):
 		if Prompt.shell_mode:
-			if inp.startswith('cd'):
-				d = inp[3:]
-				if d.startswith('/'):
-					os.chdir(d)
-				else:
-					retval = os.getcwd()
-					if d.startswith('./'): d = d[2:]
-					os.chdir(f"{retval}/{d}")
-					Prompt.prompt = f"{GREEN}sys-shell{WHITE}>{BLUE}{os.getcwd()}${WHITE} "
-			else:
-				os.system(inp)
+			os.system(inp)
 			return
 
 		i = 'a'
 		while inp[-1] == ':' or i[0] in ('\t', ' '):
-			sys.stdout.write(f'{PURPLE}block ...> {WHITE}')
+			sys.stdout.write(f'{PURPLE}block ...>{WHITE}')
 			sys.stdout.flush()
 			i = sys.stdin.readline()
 			inp += f'\n{i}'
@@ -92,20 +82,35 @@ Type "help" or "?" for more information
 		if Prompt.shell_mode:
 			self.do_rpgmode(inp)
 			return False
+
 		for session in Prompt.notes_created:
 			os.system(f"tmux kill-session -t {session}")
+		routines.cleanup()
 		print('Exit.')
 		return True
 
+	def do_cd(self, inp):
+		if Prompt.shell_mode:
+			if inp.startswith('/'):
+				os.chdir(inpd)
+			else:
+				retval = os.getcwd()
+				if inp.startswith('./'): inp = inp[2:]
+				os.chdir(f"{retval}/{inp}")
+				Prompt.prompt = f"{GREEN}sys-shell{WHITE}>{BLUE}{os.getcwd()}{WHITE}$"
+
+	def complete_cd(self, text, line, begidx, endidx):
+		return [o for o in os.listdir('.') if os.path.isdir(o) and o.startswith(text)]
+
 	def do_cmdmode(self, inp):
-		Prompt.prompt = f'{GREEN}sys-shell{WHITE}>{BLUE}{os.getcwd()}${WHITE} '
+		Prompt.prompt = f'{GREEN}sys-shell{WHITE}>{BLUE}{os.getcwd()}{WHITE}$'
 		Prompt.shell_mode = True
 
 	def help_cmdmode(self):
 		print("Executes system commands until rpgmode is called.")
 
 	def do_rpgmode(self, inp):
-		Prompt.prompt = f'{PURPLE}rpg-shell> {WHITE}'
+		Prompt.prompt = f'{PURPLE}rpg-shell>{WHITE}'
 		Prompt.shell_mode = False
 
 	def help_rpgmode(self):
@@ -120,8 +125,14 @@ Type "help" or "?" for more information
 			return
 		if inp is None: inp = 'default note'
 		if not inp in Prompt.notes_created:
-			cmdline(f"tmux new -d -s {inp} 'nano -m'")
+			try:
+				os.mkdir(f"{settings.campaing_folder}/notes")
+			except FileExistsError:
+				pass
+
+			cmdline(f"tmux new -d -s {inp} 'nano {settings.campaing_folder}/notes/{inp}.txt -m'")
 			Prompt.notes_created.append(inp)
+
 		output = cmdline(f"tmux a -t {inp}")
 		if output == b'[exited]\n':
 			Prompt.notes_created.remove(inp)
